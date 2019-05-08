@@ -1,9 +1,19 @@
-import ast
+import ast, sys
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import KFold
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
+
+def load_data(input_file):
+	label_lists = []
+	categories = []
+	with open(input_file, 'r') as f:
+		for line in f:
+			data = line.strip().split('\t')
+			label_lists.append(ast.literal_eval(data[2]))
+			categories.append(data[1])
+	return label_lists, categories
 
 def vectorize(label_lists):
 	all_labels = set()
@@ -16,20 +26,20 @@ def vectorize(label_lists):
 		X.append([label in label_list for label in all_labels])
 	return np.array(X), all_labels
 
-def load_data(source):
-	label_lists = []
-	medias = []
-	with open('%s.txt' % source, 'r') as f:
-		for line in f:
-			data = line.strip().split('\t')
-			label_lists.append(ast.literal_eval(data[2]))
-			medias.append(data[1])
-	return label_lists, medias
+def save_label_frequencies(X, classes, all_labels, categories, output_file):
+	categories = np.array(categories)
+	freqs = []
+	for category in classes:
+		freq = np.sum(X[np.where(categories == category)], axis=0)
+		freqs.append(freq.ravel().tolist())
+	freqs = np.array(freqs).T.tolist()
+	with open(output_file, 'w') as f:
+		f.write('label\t%s\ttotal\n' % '\t'.join(classes))
+		for i, freq in enumerate(freqs):
+			data = [str(x) for x in freq]
+			f.write('%s\t%s\n' % (all_labels[i], '\t'.join(data)))
 
-def dev(source, fold_count=5):
-	label_lists, medias = load_data(source)
-	X = vectorize(label_lists)[0]
-	y = LabelEncoder().fit_transform(medias)
+def dev(X, y, fold_count=5):
 	y_trues = []
 	y_preds = []
 	folds = KFold(n_splits=fold_count)
@@ -44,14 +54,10 @@ def dev(source, fold_count=5):
 		y_preds.extend(y_pred.ravel().tolist())
 	return accuracy_score(y_trues, y_preds)
 
-def classify(source):
-	label_lists, medias = load_data(source)
-	X, all_labels = vectorize(label_lists)
-	encoder = LabelEncoder()
-	y = encoder.fit_transform(medias)
+def classify(X, y):
 	clf = LogisticRegression()
 	clf.fit(X, y)
-	return np.array(all_labels), encoder.classes_, clf.coef_
+	return clf.coef_
 
 def most_important_labels(weights, n=10):
 	importants = []
@@ -61,37 +67,29 @@ def most_important_labels(weights, n=10):
 		importants.append(np.flip(important).tolist())
 	return importants
 
-def save_label_frequencies(source):
-	label_lists, medias = load_data(source)
-	medias = np.array(medias)
+def run(input_file, output_file):
+	label_lists, categories = load_data(input_file)
 	X, all_labels = vectorize(label_lists)
 	encoder = LabelEncoder()
-	y = encoder.fit_transform(medias)
-	freqs = []
-	for media in encoder.classes_:
-		freq = np.sum(X[np.where(medias == media)], axis=0).ravel().tolist()
-		freqs.append(freq)
-	freqs = np.array(freqs).T.tolist()
-	with open('%s_label_frequencies.tsv' % source, 'w') as f:
-		f.write('label\t%s\ttotal\n' % '\t'.join(encoder.classes_))
-		for i, freq in enumerate(freqs):
-			data = [str(x) for x in freq]
-			total = sum(freq)
-			f.write('%s\t%s\t%d\n' % (all_labels[i], '\t'.join(data), total))
+	y = encoder.fit_transform(categories)
+	classes = encoder.classes_
+	
+	save_label_frequencies(X, classes, all_labels, categories, output_file)
 
-def run(source):
-	save_label_frequencies(source)
-	print('Accuracy: %.4f' % dev(source))
-	labels, medias, weights = classify(source)
+	print('Accuracy: %.4f' % dev(X, y))
+	weights = classify(X, y)
+	
 	indexes = most_important_labels(weights)
-	for i, media in enumerate(medias):
+	labels = np.array(all_labels)
+	for i, category in enumerate(classes):
 		names = labels[indexes[i]]
 		weight = weights[i][indexes[i]]
-		print('\n%s top features: ' % media.title())
+		print('\n%s top features: ' % category.title())
 		for j, name in enumerate(names):
 			print('%s: %.4f' % (name, weight[j]))
 
 if __name__ == '__main__':
-	run('dataset')
-	print()
-	run('musemart')
+	if len(sys.argv) != 3:
+		print('correct usage: analyze.py <input_file> <output_file>')
+	else:
+		run(sys.argv[1], sys.argv[2])
