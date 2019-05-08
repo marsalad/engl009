@@ -5,6 +5,9 @@ from sklearn.model_selection import KFold
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 
+fold_count = 5
+n = 10
+
 def load_data(input_file):
 	label_lists = []
 	categories = []
@@ -39,7 +42,7 @@ def save_label_frequencies(X, classes, all_labels, categories, output_file):
 			data = [str(x) for x in freq]
 			f.write('%s\t%s\n' % (all_labels[i], '\t'.join(data)))
 
-def dev(X, y, fold_count=5):
+def dev(X, y):
 	y_trues = []
 	y_preds = []
 	folds = KFold(n_splits=fold_count)
@@ -59,7 +62,7 @@ def classify(X, y):
 	clf.fit(X, y)
 	return clf.coef_
 
-def most_important_labels(weights, n=10):
+def most_important_labels(weights):
 	importants = []
 	for weight in weights:
 		indexes = np.argpartition(weight, -n)[-n:]
@@ -90,6 +93,6 @@ def run(input_file, output_file):
 
 if __name__ == '__main__':
 	if len(sys.argv) != 3:
-		print('correct usage: analyze.py <input_file> <output_file>')
+		print('correct usage: analysis.py <input_file> <output_file>')
 	else:
 		run(sys.argv[1], sys.argv[2])

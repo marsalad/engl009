@@ -3,7 +3,6 @@ from google.cloud import vision
 
 verbose_frequency = 100
 
-# export GOOGLE_APPLICATION_CREDENTIALS=key.json
 client = vision.ImageAnnotatorClient()
 
 def get_labels(path):
@@ -25,6 +24,6 @@ def create_label_file(input_directory, output_file):
 
 if __name__ == '__main__':
 	if len(sys.argv) != 3:
-		print('correct usage: entities.py <input_directory> <output_file>')
+		print('correct usage: labels.py <input_directory> <output_file>')
 	else:
 		create_label_file(sys.argv[1], sys.argv[2])
